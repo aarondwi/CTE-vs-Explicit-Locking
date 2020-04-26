@@ -11,7 +11,7 @@ Sometimes, you want to speed-up your database transaction by reducing the number
 How to run
 -----------------------
 
-1. update config.py to point to your postgressql database
+1. run `docker-compose -f docker-compose.env.yml` to setup the db
 2. run setup.sql before each run
 3. run main.py, with one of the following arguments
   * cte ([impl](https://github.com/aarondwi/CTE-vs-Explicit-Locking/blob/master/writablecte.py))
@@ -20,6 +20,8 @@ How to run
 
 Details
 -----------------------
+
+The **lock** and **wolock** code style's mimic those of ORM's, in which the data is read from db, updated in the apps, then updated back to the db. See ([here](https://github.com/aarondwi/CTE-vs-Explicit-Locking/blob/master/ORMStyleCode.py)) for example
 
 The code runs in 10 threads
 **cte**: combine all transfer code into 1 sql, resulting in only 1 db-call. Locking benefits from Postgres write-lock. __safe and fast__
@@ -75,5 +77,9 @@ All of these numbers are taken at Windows 10 Pro, postgresql 11.2, Core-i7 8550U
 | run-1             |  0  |   0   |  8746  |
 | run-2             |  0  |   0   |  8705  |
 | run-3             |  0  |   0   |  8712  |
+
+The main point here is that before optimizing for performance, ensure that your application can give correct results in spite of concurrency, which is common right now.
+
+And if needed (and possible), you can use some of your data store's feature, such as __postgresql's writable cte__ to compensate for performance
 
 Beware of the time result, `wolock` seems fast, but it is prone to __race-condition__, which means `wolock` **SHOULD NOT** be used in production settings
