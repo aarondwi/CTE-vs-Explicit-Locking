@@ -21,6 +21,8 @@ class LockingAccess(Thread):
             cursor.execute("SELECT * FROM coupons WHERE code = %s FOR UPDATE", (self.code, ))
             coupon_row = cursor.fetchone()
             new_amount = coupon_row['amount'] - 1
+            if new_amount < 0:
+              raise AssertionError("coupons should not go negative")
             coupon_id = coupon_row['id']
             cursor.execute("UPDATE coupons SET amount = %s WHERE id = %s", (new_amount, coupon_id))
             cursor.execute("INSERT INTO user_coupon_usage VALUES (%s, %s)", (coupon_id, user_id))

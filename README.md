@@ -78,8 +78,8 @@ All of these numbers are taken at Windows 10 Pro, postgresql 11.2, Core-i7 8550U
 | run-2             |  0  |   0   |  8705  |
 | run-3             |  0  |   0   |  8712  |
 
+As can be seen, the `wolock` doesn't return the correct count for the remaining coupons, which means this is the very example of race-condition's danger. It may seem fast, but **SHOULD NOT** be used in production
+
 The main point here is that before optimizing for performance, ensure that your application can give correct results in spite of concurrency, which is common right now.
 
-And if needed (and possible), you can use some of your data store's feature, such as __postgresql's writable cte__ to compensate for performance
-
-Beware of the time result, `wolock` seems fast, but it is prone to __race-condition__, which means `wolock` **SHOULD NOT** be used in production settings
+And if needed (and possible), you can use some of your data store's feature, such as __postgresql's writable cte__ to compensate for performance. This feature can also delegate the task of checking constraint to db
