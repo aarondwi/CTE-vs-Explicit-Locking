@@ -13,7 +13,7 @@ drop table if exists users;
 create table users (
   id serial primary key
 );
-insert into users select * from generate_series(1, 10000);
+insert into users select * from generate_series(1, 100000);
 
 create table user_coupon_usage (
   coupon_id integer,

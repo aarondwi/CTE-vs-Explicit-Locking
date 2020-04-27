@@ -13,16 +13,19 @@ class WritableCte(Thread):
       user_id = self.q.get()
       with get_connection(self.pool) as conn:
         conn.autocommit = True
-        with conn.cursor() as cursor:
-          cursor.execute("""
-            WITH cte AS (
-              UPDATE coupons
-              SET amount=amount-1
-              WHERE code = %s
-              RETURNING id
-            )
-            INSERT INTO user_coupon_usage
-            SELECT id, %s
-            FROM cte
-          """, (self.code, user_id))
+        try:
+          with conn.cursor() as cursor:
+            cursor.execute("""
+              WITH cte AS (
+                UPDATE coupons
+                SET amount=amount-1
+                WHERE code = %s
+                RETURNING id
+              )
+              INSERT INTO user_coupon_usage
+              SELECT id, %s
+              FROM cte
+            """, (self.code, user_id))
+        except:
+          pass
       self.q.task_done()

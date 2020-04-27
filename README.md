@@ -1,12 +1,12 @@
 Writable CTE vs Locking
 -----------------------
 
-Example (performance, correctness) of using PostgreSQL's writable CTE vs locking (with FOR UPDATE) and blind update (multiple call, without locking). Here, the use case is __only use coupon once for each users, and all data should be properly recorded__
+Example (performance, correctness) of using PostgreSQL's writable CTE vs locking (with FOR UPDATE) and blind update (multiple call, without locking). Here, the use case is __only use coupon once for each users, and coupons used should not exceed the predefined coupon numbers__.
 
 Why?
 -----------------------
 
-Sometimes, you want to speed-up your database transaction by reducing the number of calls. Of course, while still being safe. This repo gives an example about how to achieve that.
+Most people (trust me, even in important business apps) blindly assumes that their code will run serially against database, not using any kind of transaction guarantee or proper locking, which may result in logically corrupted state. For those already knowing, they said `lock makes application slow`. While true, but performance doesn't mean anything if the result is incorrect
 
 How to run
 -----------------------
@@ -44,6 +44,8 @@ cursor.execute("""
 cursor.execute("SELECT * FROM coupons WHERE code = %s FOR UPDATE", (self.code, ))
 coupon_row = cursor.fetchone()
 new_amount = coupon_row['amount'] - 1
+if new_amount < 0:
+  raise AssertionError("coupons should not go negative")
 coupon_id = coupon_row['id']
 cursor.execute("UPDATE coupons SET amount = %s WHERE id = %s", (new_amount, coupon_id))
 cursor.execute("INSERT INTO user_coupon_usage VALUES (%s, %s)", (coupon_id, user_id))
@@ -54,6 +56,8 @@ cursor.execute("INSERT INTO user_coupon_usage VALUES (%s, %s)", (coupon_id, user
 cursor.execute("SELECT * FROM coupons WHERE code = %s", (self.code, ))
 coupon_row = cursor.fetchone()
 new_amount = coupon_row['amount'] - 1
+if new_amount < 0:
+  raise AssertionError("coupons should not go negative")
 coupon_id = coupon_row['id']
 cursor.execute("UPDATE coupons SET amount = %s WHERE id = %s", (new_amount, coupon_id))
 cursor.execute("INSERT INTO user_coupon_usage VALUES (%s, %s)", (coupon_id, user_id))
@@ -65,21 +69,28 @@ Result
 All of these numbers are taken at Windows 10 Pro, postgresql 11.2, Core-i7 8550U, 16GB of RAM, 512GB NVMe SSD
 
 **Time result: (all in seconds)**
-| run-number/result |   cte   |   lock   |  wolock  |
-| ----------------- |:--------|----------|---------:|
-| run-1             | 4.40147 | 20.93568 | 11.56369 |
-| run-2             | 5.15701 | 21.00785 | 11.78913 |
-| run-3             | 4.53813 | 20.90705 | 12.52875 |
+| run-number/result |   cte   |   lock  |  wolock  |
+| ----------------- |:--------|---------|---------:|
+| run-1             | 15.3365 | 38.3434 | 83.48423 |
+| run-2             | 16.0106 | 38.4878 | 89.16248 |
+| run-3             | 15.6987 | 42.4052 | 174.5555 |
 
-**Final coupon count:**
+**Final coupon count: (select amount from coupons where id=1)**
 | run-number/result | cte |  lock | wolock |
 | ----------------- |:----|-------|-------:|
-| run-1             |  0  |   0   |  8746  |
-| run-2             |  0  |   0   |  8705  |
-| run-3             |  0  |   0   |  8712  |
+| run-1             |  0  |   0   |   0    |
+| run-2             |  0  |   0   |   0    |
+| run-3             |  0  |   0   |   0    |
 
-As can be seen, the `wolock` doesn't return the correct count for the remaining coupons, which means this is the very example of race-condition's danger. It may seem fast, but **SHOULD NOT** be used in production
+**Number of users who got the coupon: (select count(*) from user_coupon_usage)**
+| run-number/result |   cte   |  lock  | wolock |
+| ----------------- |:--------|--------|-------:|
+| run-1             |  10000  | 10000  |  98152 |
+| run-2             |  10000  | 10000  |  96897 |
+| run-3             |  10000  | 10000  |  98046 |
+
+As can be seen, the `wolock` doesn't return the correct count for the coupon usages, which means the code is basically *unsafe*. It **SHOULD NOT** be used in production.
 
 The main point here is that before optimizing for performance, ensure that your application can give correct results in spite of concurrency, which is common right now.
 
-And if needed (and possible), you can use some of your data store's feature, such as __postgresql's writable cte__ to compensate for performance. This feature can also delegate the task of checking constraint to db
+And if needed (and possible), you can use some of your data store's feature, such as __postgresql's writable cte__ to compensate for performance. This feature can also delegate the task of checking constraint to the database.
