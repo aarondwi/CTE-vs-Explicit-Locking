@@ -1,7 +1,9 @@
-Writable CTE vs Locking
+Case
 -----------------------
 
-Example (performance, correctness) of using PostgreSQL's writable CTE vs locking (with FOR UPDATE) and blind update (multiple call, without locking). Here, the use case is __only use coupon once for each users, and coupons used should not exceed the predefined coupon numbers__.
+1. We have lots of users, and predefined quota for coupons (but less than number of users)
+2. Each user should be recorded after using the coupons
+3. Number of coupons recorded (meaning coupons given) should not exceed number of users
 
 Why?
 -----------------------
